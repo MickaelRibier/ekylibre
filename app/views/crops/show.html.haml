@@ -1,0 +1,7 @@
+= turbo_stream_from @crop
+%p#notice= notice
+= render @crop
+%div
+  = link_to "Edit this crop", edit_crop_path(@crop)
+  = link_to "Back to crops", crops_path
+  = button_to "Destroy this crop", crop_path(@crop), method: :delete 

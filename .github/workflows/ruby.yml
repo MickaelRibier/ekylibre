@@ -1,0 +1,71 @@
+name: Ruby
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  linters:
+    runs-on: ubuntu-latest
+
+    env:
+      DISABLE_BOOTSNAP: true
+      DISABLE_BOOTSNAP_LOAD_PATH_CACHE: true
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Run linters
+        run: bundle exec rubocop --parallel
+      - name: Ruby security checks
+        run: |
+          bundle exec bundler-audit --update
+          bundle exec brakeman -q -w2
+
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      RAILS_ENV: test
+      DB_HOST: postgres
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DISABLE_BOOTSNAP: true
+      DISABLE_BOOTSNAP_LOAD_PATH_CACHE: true
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GEOS
+        run: sudo apt-get install postgresql-client libgeos-dev libgeos++-dev libgeos-dev libproj-dev
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Create database
+        run: |
+          bundle exec rails db:create
+          bundle exec rails db:schema:load
+
+      - name: Run tests
+        run: bundle exec rake
