@@ -30,6 +30,11 @@ RUN bundle install && \
 
 COPY . .
 
+# Installer Node.js 18.x (LTS) et supprimer Yarn existant
+RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -yq nodejs && \
+    apt-get remove -y cmdtest yarn || true && \
+    npm install --global yarn --force
 
 # Précompilation des assets
 RUN chmod +x ./bin/rails
