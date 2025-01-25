@@ -38,7 +38,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
 
 # Précompilation des assets
 #+y voir si fonctionne sans cette ligne
-# RUN chmod +x ./bin/rails
+RUN chmod +x ./bin/rails
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 # Étape finale
 FROM ruby:3.3.1 as final
