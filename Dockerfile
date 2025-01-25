@@ -30,7 +30,7 @@ RUN bundle install && \
 
 COPY . .
 
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
+RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -yq nodejs && \
     npm install --global yarn
 
