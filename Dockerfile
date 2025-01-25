@@ -50,3 +50,24 @@ COPY --from=build /rails /rails
 
 # Nettoyage
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Créer un utilisateur non-root et attribuer les permissions
+RUN useradd rails --create-home --shell /bin/bash && \
+    chown -R rails:rails db log storage tmp
+RUN chmod +x /rails/bin/docker-entrypoint
+
+# Passer à l'utilisateur rails pour des raisons de sécurité
+USER rails:rails
+
+# Entrypoint pour préparer la base de données
+ENTRYPOINT ["/rails/bin/docker-entrypoint"]
+
+# Healthcheck pour vérifier l'état de l'application
+HEALTHCHECK --interval=15s --timeout=3s --start-period=0s --start-interval=5s --retries=3 \
+    CMD curl -f http://localhost:3000/up || exit 1
+
+# Exposer le port 3000
+EXPOSE 3000
+
+# Commande par défaut pour démarrer le serveur
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
