@@ -1,7 +1,7 @@
 services:
   web:
     build:
-      context: ./
+      context: ./ # Dossier contenant le fichier Dockerfile
       dockerfile: development.Dockerfile
     command: bash -c "rm -f tmp/pids/server.pid && bin/rails s -p 3000 -b '0.0.0.0'"
     volumes:
@@ -15,19 +15,19 @@ services:
       - HISTFILE=/usr/src/app/log/.bash_history 
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy # Attend que PostgreSQL soit prêt
       redis:
-        condition: service_started
+        condition: service_started # Attend que Redis démarre
   db:
     image: postgis/postgis:16-3.4
     env_file:
       - .env
     ports:
-      - "5433:5432"
+      - "5433:5432" # Expose PostgreSQL
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./init_db.sql:/docker-entrypoint-initdb.d/postgis_extensions.sql
-    healthcheck:
+      - ./init_db.sql:/docker-entrypoint-initdb.d/postgis_extensions.sql # Script d'init
+    healthcheck: # Vérifie si PostgreSQL est prêt
       test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${DB_DEV_NAME}'"]
       interval: 2s
       timeout: 5s
@@ -38,6 +38,6 @@ services:
       - redis_data:/data
 
 volumes:
-  pg_data:
-  redis_data:
-  bundle:
+  pg_data: # Données PostgreSQL persistantes
+  redis_data: # Données Redis persistantes
+  bundle: # Gems Ruby
