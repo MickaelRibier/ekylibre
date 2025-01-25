@@ -37,6 +37,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
     npm install --global yarn --force
 
 # Précompilation des assets
+#+y voir si fonctionne sans cette ligne
 RUN chmod +x ./bin/rails
 RUN SECRET_KEY_BASE=temporary_dummy_key RAILS_ENV=production bundle exec rails assets:precompile --trace
 
