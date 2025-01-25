@@ -80,7 +80,7 @@ RUN bundle exec bootsnap precompile app/ lib/
 RUN chmod +x ./bin/rails
 # RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 # RUN SECRET_KEY_BASE=$(rake secret) ./bin/rails assets:precompile
-RUN SECRET_KEY_BASE=temporary_dummy_key ./bin/rails assets:precompile
+RUN SECRET_KEY_BASE=temporary_dummy_key ./bin/rails assets:precompile --trace
 
 
 
