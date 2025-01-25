@@ -24,15 +24,20 @@ RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
 
 # Copier les fichiers de l'application
 COPY Gemfile Gemfile.lock ./
+RUN bundle check
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
     bundle exec bootsnap precompile --gemfile
 
 COPY . .
 
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
+    apt-get install -yq nodejs && \
+    npm install --global yarn
+
 # Précompilation des assets
 RUN chmod +x ./bin/rails
-RUN SECRET_KEY_BASE=temporary_dummy_key ./bin/rails assets:precompile --trace
+RUN SECRET_KEY_BASE=temporary_dummy_key RAILS_ENV=production bundle exec rails assets:precompile --trace
 
 # Étape finale
 FROM ruby:3.3.1 as final
