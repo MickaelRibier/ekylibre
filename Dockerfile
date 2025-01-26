@@ -1,79 +1,86 @@
-# Étape de Build
-FROM ruby:3.3.1 as build
+# syntax=docker/dockerfile:1
+
+# Make sure RUBY_VERSION matches the Ruby version in .ruby-version and Gemfile
+ARG RUBY_VERSION=3.3.1
+FROM registry.docker.com/library/ruby:$RUBY_VERSION-slim as base
+
 WORKDIR /rails
 
-# Variables d'environnement
+# Set production environment
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_JOBS="4" \
     BUNDLE_WITHOUT="development:test" \
     BUNDLE_PATH="/usr/local/bundle"
 
-# Installer les dépendances système
-RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
+
+# Throw-away build stage to reduce size of final image
+FROM base as build
+
+# Install packages needed to build gems
+# NOTE: This example project intentionally does not require or install node.js
+
+RUN --mount=type=cache,target=/var/cache/apt \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  --mount=type=tmpfs,target=/var/log \
+  rm -f /etc/apt/apt.conf.d/docker-clean; \
+  echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
+  apt-get update -qq \
+  && apt-get install -yq --no-install-recommends \
     build-essential \
     gnupg2 \
     less \
     git \
     libpq-dev \
     libvips \
-    pkg-config \
-    curl \
-    nodejs \
-    yarn
+    pkg-config
 
-# Copier les fichiers de l'application
+# Install application gems
 COPY Gemfile Gemfile.lock ./
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
     bundle exec bootsnap precompile --gemfile
 
+# Copy application code
 COPY . .
 
-# Installer Node.js 18.x (LTS) et supprimer Yarn existant
-RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -yq nodejs && \
-    apt-get remove -y cmdtest yarn || true && \
-    npm install --global yarn --force
+# Precompile bootsnap code for faster boot times
+RUN bundle exec bootsnap precompile app/ lib/
 
-# Précompilation des assets
-#+y voir si fonctionne sans cette ligne
-RUN chmod +x ./bin/rails
+# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
-# Étape finale
-FROM ruby:3.3.1 as final
-WORKDIR /rails
 
-# Installer les dépendances système pour le déploiement
-RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
-    curl \
-    postgresql-client \
-    libvips
 
-# Copier les artefacts depuis l'étape de build
+# Final stage for app image
+FROM base
+
+# Install packages needed for deployment
+RUN --mount=type=cache,target=/var/cache/apt \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  --mount=type=tmpfs,target=/var/log \
+  rm -f /etc/apt/apt.conf.d/docker-clean; \
+  echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
+  apt-get update -qq \
+  && apt-get install -yq --no-install-recommends \
+  curl \
+  postgresql-client \
+  libvips
+
+# Copy built artifacts: gems, application
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 
-# Nettoyage
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Créer un utilisateur non-root et attribuer les permissions
+# Run and own only the runtime files as a non-root user for security
 RUN useradd rails --create-home --shell /bin/bash && \
     chown -R rails:rails db log storage tmp
-RUN chmod +x /rails/bin/docker-entrypoint
-
-# Passer à l'utilisateur rails pour des raisons de sécurité
 USER rails:rails
 
-# Entrypoint pour préparer la base de données
+# Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Healthcheck pour vérifier l'état de l'application
 HEALTHCHECK --interval=15s --timeout=3s --start-period=0s --start-interval=5s --retries=3 \
-    CMD curl -f http://localhost:3000/up || exit 1
+  CMD curl -f http://localhost:3000/up || exit 1
 
-# Exposer le port 3000
+# Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
-
-# Commande par défaut pour démarrer le serveur
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

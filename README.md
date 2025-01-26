@@ -46,4 +46,3 @@ docker compose run --rm web bin/rspec
 docker compose run --rm web bundle update
 docker compose up --build
 ```
-# ekylibre
